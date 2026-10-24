@@ -79,7 +79,18 @@ footer.foot{background:var(--deep);border-top:1px solid rgba(201,165,90,.3)}
 .sitemap{display:flex;flex-wrap:wrap;gap:4px 24px}
 .sitemap a{color:#DCD5C4;text-decoration:none;font-size:12px;letter-spacing:.2em;text-transform:uppercase;padding:8px 0}
 .sitemap a:hover{color:var(--gold-l)}
-.lb{position:fixed;inset:0;z-index:80;background:rgba(8,9,20,.94);display:flex;align-items:center;justify-content:center;padding:32px}
+.lb{position:fixed;inset:0;z-index:80;background:rgba(8,9,20,.97);display:flex;flex-direction:column;overscroll-behavior:contain;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.lbview{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;padding:16px}
+.lbview img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:0 0;user-select:none;-webkit-user-drag:none;will-change:transform}
+.lbbar{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:12px 16px;border-top:1px solid rgba(201,165,90,.3);background:rgba(12,14,31,.9)}
+.lbcap{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:15px}
+.lbcap .tt{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:24px;line-height:1.15;color:var(--ivory)}
+.lbctl{display:flex;align-items:center;gap:8px}
+.lbctl .btn{min-height:44px;padding:0 16px}
+.lbhint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:var(--dim);pointer-events:none}
+@media (max-width:640px){.lbcap .more{display:none}.lbcap .tt{font-size:20px}.lbcap .serif{font-size:18px!important}.lbcap p{font-size:13px}}
+.lbcap p{margin:0}.lbcap .serif{font-size:22px!important;line-height:1.2}
+html.noscroll,html.noscroll body{overflow:hidden}
 .lb[hidden]{display:none}
 .lb .inner{display:flex;flex-wrap:wrap;gap:36px;align-items:center;justify-content:center;max-width:1150px;width:100%;max-height:100%;overflow:auto}
 .lb img{max-height:80vh;max-width:min(100%,780px)}
@@ -322,25 +333,47 @@ const lb = $('#lb');
 let G = null;
 function openG(items, start){
   G = {items, i: start};
-  lb.innerHTML = `<button type="button" aria-label="Fermer" class="lbbg" style="position:absolute;inset:0;background:transparent;border:0;cursor:zoom-out"></button>
-  <div class="inner" style="position:relative;flex-direction:column;gap:14px"><div class="lbstage" style="display:flex;flex-wrap:wrap;gap:28px;align-items:center;justify-content:center;max-width:100%"></div>
-  <div style="display:flex;align-items:center;gap:18px"><button type="button" class="btn lbp" aria-label="Précédent">←</button><span class="lbn" style="font-size:14px;color:var(--dim);min-width:70px;text-align:center"></span><button type="button" class="btn lbnx" aria-label="Suivant">→</button><button type="button" class="btn lbx">Fermer</button></div></div>`;
-  lb.hidden = false; showG(); lb.querySelector('.lbx').focus();
+  lb.innerHTML = `<div class="lbview"><img alt=""><span class="lbhint">Double-touchez ou pincez pour zoomer</span></div>
+  <div class="lbbar"><div class="lbcap"></div><div class="lbctl"><button type="button" class="btn lbp" aria-label="Précédent">←</button><span class="lbn" style="font-size:13px;color:var(--dim);min-width:56px;text-align:center"></span><button type="button" class="btn lbnx" aria-label="Suivant">→</button><button type="button" class="btn lbx" aria-label="Fermer">✕</button></div></div>`;
+  lb.hidden = false; document.documentElement.classList.add('noscroll'); showG(); lb.querySelector('.lbx').focus();
 }
+let Z = {s:1,x:0,y:0};
+function applyZ(){ const im=lb.querySelector('.lbview img'); if(im) im.style.transform = `translate(${Z.x}px,${Z.y}px) scale(${Z.s})`; }
+function resetZ(){ Z={s:1,x:0,y:0}; applyZ(); }
 function showG(){
-  const it = G.items[G.i];
-  lb.querySelector('.lbstage').innerHTML = `<img src="${it.src}" alt="${esc(it.alt||'')}" style="max-height:${it.cap?'74vh':'80vh'};max-width:min(100%,900px)">${it.cap?`<div style="flex:0 1 320px;display:flex;flex-direction:column;gap:10px">${it.cap}</div>`:''}`;
+  const it = G.items[G.i], im = lb.querySelector('.lbview img');
+  im.src = it.src; im.alt = it.alt||''; resetZ();
+  lb.querySelector('.lbcap').innerHTML = it.cap || '';
   lb.querySelector('.lbn').textContent = G.items.length>1 ? `${G.i+1} / ${G.items.length}` : '';
-  lb.querySelectorAll('.lbp,.lbnx').forEach(b => b.style.visibility = G.items.length>1 ? 'visible' : 'hidden');
+  lb.querySelectorAll('.lbp,.lbnx').forEach(b => b.style.display = G.items.length>1 ? '' : 'none');
 }
 function stepG(d){ if(!G) return; G.i = (G.i + d + G.items.length) % G.items.length; showG(); }
-function closeLB(){ lb.hidden = true; lb.innerHTML = ''; G = null; }
-lb.addEventListener('click', e => { if (e.target.closest('.lbbg,.lbx')) closeLB(); else if (e.target.closest('.lbp')) stepG(-1); else if (e.target.closest('.lbnx')) stepG(1); });
+function closeLB(){ lb.hidden = true; lb.innerHTML = ''; G = null; document.documentElement.classList.remove('noscroll'); }
+lb.addEventListener('click', e => { if (e.target.closest('.lbx')) closeLB(); else if (e.target.closest('.lbp')) stepG(-1); else if (e.target.closest('.lbnx')) stepG(1); });
 addEventListener('keydown', e => { if (lb.hidden) return; if (e.key==='Escape') closeLB(); if (e.key==='ArrowLeft') stepG(-1); if (e.key==='ArrowRight') stepG(1); });
-let tx=null, ty=null;
-lb.addEventListener('touchstart', e => { tx=e.touches[0].clientX; ty=e.touches[0].clientY; }, {passive:true});
-lb.addEventListener('touchend', e => { if (tx===null) return; const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty; if (Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)) stepG(dx<0?1:-1); tx=null; }, {passive:true});
-const workItem = (w) => ({src: w.big||w.fr||w.th, alt: w.title, cap: `<p class="serif" style="margin:0;font-style:italic;font-size:34px;line-height:1.1;color:var(--ivory)">${esc(w.title)}</p><p class="muted" style="margin:0;font-size:15px">${esc(w.verre)}<br><span style="color:var(--gold-l)">${esc(w.cadre)}</span></p><a class="btn gold" href="#${w.id}">Voir la fiche</a>`});
+// zoom & swipe
+function zoomAt(cx, cy, ns){ const v=lb.querySelector('.lbview').getBoundingClientRect(), im=lb.querySelector('.lbview img');
+  const ox=im.offsetLeft, oy=im.offsetTop; const px=cx-v.left-ox, py=cy-v.top-oy;
+  ns=Math.min(5,Math.max(1,ns)); Z.x = px - (px - Z.x) * ns / Z.s; Z.y = py - (py - Z.y) * ns / Z.s; Z.s = ns; if (Z.s===1){Z.x=0;Z.y=0;} applyZ(); }
+let T = null, lastTap = 0;
+lb.addEventListener('touchstart', e => { if (!e.target.closest('.lbview')) return;
+  const h=lb.querySelector('.lbhint'); if(h) h.remove();
+  if (e.touches.length===2){ const [a,b]=e.touches; T={mode:'pinch',d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),s:Z.s,cx:(a.clientX+b.clientX)/2,cy:(a.clientY+b.clientY)/2}; }
+  else { const p=e.touches[0]; T={mode:'one',x0:p.clientX,y0:p.clientY,zx:Z.x,zy:Z.y,t:Date.now()}; } }, {passive:true});
+lb.addEventListener('touchmove', e => { if (!T) return; e.preventDefault();
+  if (T.mode==='pinch' && e.touches.length===2){ const [a,b]=e.touches; const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); zoomAt(T.cx,T.cy,T.s*d/T.d); }
+  else if (T.mode==='one' && Z.s>1){ const p=e.touches[0]; Z.x=T.zx+(p.clientX-T.x0); Z.y=T.zy+(p.clientY-T.y0); applyZ(); } }, {passive:false});
+lb.addEventListener('touchend', e => { if (!T) return;
+  if (T.mode==='one'){ const p=e.changedTouches[0], dx=p.clientX-T.x0, dy=p.clientY-T.y0;
+    if (Z.s===1 && Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)) stepG(dx<0?1:-1);
+    else if (Math.abs(dx)<10 && Math.abs(dy)<10){ const now=Date.now(); if (now-lastTap<300){ Z.s>1 ? resetZ() : zoomAt(p.clientX,p.clientY,2.5); lastTap=0; } else lastTap=now; } }
+  if (e.touches.length===0) T=null; else T=null; });
+lb.addEventListener('dblclick', e => { if (!e.target.closest('.lbview')) return; Z.s>1 ? resetZ() : zoomAt(e.clientX,e.clientY,2.5); });
+lb.addEventListener('wheel', e => { if (!e.target.closest('.lbview')) return; e.preventDefault(); zoomAt(e.clientX,e.clientY,Z.s*(e.deltaY<0?1.15:1/1.15)); }, {passive:false});
+let M=null; lb.addEventListener('mousedown', e => { if (Z.s>1 && e.target.closest('.lbview')){ M={x0:e.clientX,y0:e.clientY,zx:Z.x,zy:Z.y}; e.preventDefault(); } });
+addEventListener('mousemove', e => { if (M){ Z.x=M.zx+e.clientX-M.x0; Z.y=M.zy+e.clientY-M.y0; applyZ(); } });
+addEventListener('mouseup', () => { M=null; });
+const workItem = (w) => ({src: w.big||w.fr||w.th, alt: w.title, cap: `<span class="tt">${esc(w.title)}</span><span class="more muted" style="font-size:14px">${esc(w.verre)} · <span style="color:var(--gold-l)">${esc(w.cadre)}</span></span><a href="#${w.id}" style="font-size:14px">Voir la fiche →</a>`});
 const docItem = (x) => ({src: x.big, alt: x.src, cap: `<p style="margin:0;color:var(--gold-l)">${esc(x.src)}</p><p style="margin:0;font-size:14px;color:var(--dim)">${esc([x.mo,x.y].filter(Boolean).join(' ')||x.date||'')}${x.ill?' · page d’illustration':''}</p>${x.q?`<p class="serif" style="margin:0;font-style:italic;font-size:22px;color:var(--ivory2)">« ${esc(x.q)} »</p>`:''}`});
 const DOCS = () => [...D.press.map(p=>({...p, y:(p.date.match(/\d{4}/)||[''])[0], mo:p.date.replace(/\s*\d{4}/,'')})), ...D.press2.filter(x=>x.kind!=='invitation')];
 const EXPO_PH = () => [{src:D.A.portrait,cap:'Bormes-les-Mimosas, 2022'},{src:D.A.expo1,cap:'[Lieu et année de l’exposition]'},{src:D.A.expo2,cap:'[Lieu et année de l’exposition]'}];
